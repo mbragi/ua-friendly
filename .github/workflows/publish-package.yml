@@ -1,0 +1,59 @@
+# .github/workflows/publish-package.yml
+name: Publish npm Package
+
+on:
+  push:
+    # Trigger only on version tags like v1.2.3
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:     # allows manual triggering
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build (if you have a build step)
+        run: npm run build:type
+
+  publish:
+    name: Publish to npm
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18.x and configure npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+          cache: 'npm'
+
+      - name: Authenticate to npm
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish package
+        run: npm publish
+        env:
+          NODE_ENV: production
+
+      - name: Cleanup ~/.npmrc
+        run: rm ~/.npmrc
